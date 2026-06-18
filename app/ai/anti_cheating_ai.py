@@ -18,13 +18,6 @@ class AntiCheatingAI:
     def __init__(self):
         logger.info("Loading AI sub-modules...")
         self.face_detector  = FaceDetector()
-        self.face_mesh = mp_face_mesh.FaceMesh(
-            static_image_mode=True,
-            max_num_faces=1,
-            refine_landmarks=True,
-            min_detection_confidence=0.5,
-            min_tracking_confidence=0.5,
-        )
         self.head_pose      = HeadPoseEstimator()
         self.eye_gaze       = EyeGazeDetector()
         self.phone_detector = PhoneDetector()
@@ -42,8 +35,16 @@ class AntiCheatingAI:
             self.eye_gaze.reset_buffer()
             return self._result(True, "no_face_detected", face_count=0)
 
-        # 2. Face mesh (once)
-        mesh_results = self.face_mesh.process(rgb_frame)
+        # 2. Face mesh - instance جديد في كل request لتجنب timestamp mismatch
+        with mp_face_mesh.FaceMesh(
+            static_image_mode=True,
+            max_num_faces=1,
+            refine_landmarks=True,
+            min_detection_confidence=0.5,
+            min_tracking_confidence=0.5,
+        ) as face_mesh:
+            mesh_results = face_mesh.process(rgb_frame)
+
         landmarks = (
             mesh_results.multi_face_landmarks[0].landmark
             if mesh_results.multi_face_landmarks else None
@@ -94,5 +95,4 @@ class AntiCheatingAI:
 
     def close(self):
         self.face_detector.close()
-        self.face_mesh.close()
         self.eye_gaze.close()
